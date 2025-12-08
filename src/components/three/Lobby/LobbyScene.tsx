@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useCallback } from 'react';
+import { Suspense, useCallback, useMemo } from 'react';
 import { Canvas } from '@react-three/fiber';
 import {
   Environment,
@@ -12,6 +12,8 @@ import {
 import { useRouter } from 'next/navigation';
 import { useSceneStore } from '@/stores/sceneStore';
 import { usePerformanceTier } from '@/hooks/usePerformanceTier';
+import { useProgress } from '@/hooks/useProgress';
+import { curriculum } from '@/content/curriculum';
 import { Terminal } from './Terminal';
 import { Bookshelf } from './Bookshelf';
 import { TrophyShelf } from './TrophyShelf';
@@ -77,23 +79,23 @@ function Floor() {
   );
 }
 
+interface PhaseProgress {
+  phase1: number;
+  phase2: number;
+  phase3: number;
+  phase4: number;
+  phase5: number;
+  phase6: number;
+}
+
 interface LobbyContentProps {
   onNavigate: (path: string) => void;
   tier: 'ultra' | 'balanced' | 'minimal';
+  userProgress: PhaseProgress;
+  userAchievements: string[];
 }
 
-function LobbyContent({ onNavigate, tier }: LobbyContentProps) {
-  // Mock user progress - would come from store/API
-  const userProgress = {
-    phase1: 25,
-    phase2: 0,
-    phase3: 0,
-    phase4: 0,
-    phase5: 0,
-    phase6: 0,
-  };
-
-  const userAchievements = ['first_render'];
+function LobbyContent({ onNavigate, tier, userProgress, userAchievements }: LobbyContentProps) {
 
   return (
     <>
@@ -163,6 +165,7 @@ export default function LobbyScene() {
   const router = useRouter();
   const { performanceTier, isLoading: sceneLoading } = useSceneStore();
   const { config, isDetecting, tier } = usePerformanceTier();
+  const { lessonProgress, achievements } = useProgress();
 
   const handleNavigate = useCallback(
     (path: string) => {
@@ -170,6 +173,30 @@ export default function LobbyScene() {
     },
     [router]
   );
+
+  // Calculate real progress for each phase
+  const userProgress = useMemo((): PhaseProgress => {
+    const getPhaseProgress = (phaseId: number): number => {
+      const phase = curriculum.find((p) => p.id === phaseId);
+      if (!phase || phase.lessons.length === 0) return 0;
+
+      const completedCount = phase.lessons.filter((lesson) => {
+        const lp = lessonProgress[lesson.id];
+        return lp?.status === 'completed' || lp?.status === 'mastered';
+      }).length;
+
+      return Math.round((completedCount / phase.lessons.length) * 100);
+    };
+
+    return {
+      phase1: getPhaseProgress(1),
+      phase2: getPhaseProgress(2),
+      phase3: getPhaseProgress(3),
+      phase4: getPhaseProgress(4),
+      phase5: getPhaseProgress(5),
+      phase6: getPhaseProgress(6),
+    };
+  }, [lessonProgress]);
 
   if (isDetecting) {
     return (
@@ -199,7 +226,12 @@ export default function LobbyScene() {
       <PerspectiveCamera makeDefault position={[0, 3, 8]} fov={50} />
 
       <Suspense fallback={<LoadingFallback />}>
-        <LobbyContent onNavigate={handleNavigate} tier={tier} />
+        <LobbyContent
+          onNavigate={handleNavigate}
+          tier={tier}
+          userProgress={userProgress}
+          userAchievements={achievements}
+        />
       </Suspense>
 
       <CameraController />

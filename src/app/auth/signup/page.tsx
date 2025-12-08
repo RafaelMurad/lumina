@@ -1,72 +1,114 @@
 'use client';
 
 import { useAuth } from '@/components/providers/AuthProvider';
-import { useSearchParams, useRouter } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { useState, Suspense } from 'react';
 import Link from 'next/link';
-import { Github, Mail, Loader2, User, Eye, EyeOff, ArrowLeft } from 'lucide-react';
+import { Github, Mail, Loader2, Eye, EyeOff, ArrowLeft, Check } from 'lucide-react';
 
-function LoginForm() {
-  const { signInWithGithub, signInWithGoogle, signInWithEmail, signInAsGuest, isLoading } = useAuth();
-  const searchParams = useSearchParams();
+function SignupForm() {
+  const { signInWithGithub, signInWithGoogle, signUpWithEmail, isLoading } = useAuth();
   const router = useRouter();
-  const [isSigningIn, setIsSigningIn] = useState<'github' | 'google' | 'email' | 'guest' | null>(null);
+  const [isSigningUp, setIsSigningUp] = useState<'github' | 'google' | 'email' | null>(null);
   const [showEmailForm, setShowEmailForm] = useState(false);
+  const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
 
-  const redirectTo = searchParams.get('redirectTo') || '/dashboard';
-
-  const handleGithubSignIn = async () => {
-    setIsSigningIn('github');
+  const handleGithubSignUp = async () => {
+    setIsSigningUp('github');
     setError(null);
     try {
       await signInWithGithub();
     } catch (error) {
-      console.error('GitHub sign in failed:', error);
-      setIsSigningIn(null);
+      console.error('GitHub sign up failed:', error);
+      setIsSigningUp(null);
     }
   };
 
-  const handleGoogleSignIn = async () => {
-    setIsSigningIn('google');
+  const handleGoogleSignUp = async () => {
+    setIsSigningUp('google');
     setError(null);
     try {
       await signInWithGoogle();
     } catch (error) {
-      console.error('Google sign in failed:', error);
-      setIsSigningIn(null);
+      console.error('Google sign up failed:', error);
+      setIsSigningUp(null);
     }
   };
 
-  const handleEmailSignIn = async (e: React.FormEvent) => {
+  const handleEmailSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !password) {
-      setError('Please enter both email and password');
+      setError('Please fill in all required fields');
       return;
     }
-    setIsSigningIn('email');
+    if (password.length < 8) {
+      setError('Password must be at least 8 characters');
+      return;
+    }
+    if (password !== confirmPassword) {
+      setError('Passwords do not match');
+      return;
+    }
+    setIsSigningUp('email');
     setError(null);
-    const result = await signInWithEmail(email, password);
+    const result = await signUpWithEmail(email, password, fullName);
     if (result.error) {
       setError(result.error);
-      setIsSigningIn(null);
+      setIsSigningUp(null);
     } else {
-      router.push(redirectTo);
+      setSuccess(true);
     }
   };
 
-  const handleGuestSignIn = () => {
-    setIsSigningIn('guest');
-    setError(null);
-    signInAsGuest();
+  const passwordStrength = () => {
+    if (password.length === 0) return null;
+    if (password.length < 8) return { label: 'Too short', color: 'bg-red-500', width: '25%' };
+    const hasUpper = /[A-Z]/.test(password);
+    const hasLower = /[a-z]/.test(password);
+    const hasNumber = /[0-9]/.test(password);
+    const hasSpecial = /[^A-Za-z0-9]/.test(password);
+    const score = [hasUpper, hasLower, hasNumber, hasSpecial].filter(Boolean).length;
+    if (score <= 1) return { label: 'Weak', color: 'bg-orange-500', width: '33%' };
+    if (score <= 2) return { label: 'Fair', color: 'bg-yellow-500', width: '50%' };
+    if (score <= 3) return { label: 'Good', color: 'bg-blue-500', width: '75%' };
+    return { label: 'Strong', color: 'bg-green-500', width: '100%' };
   };
+
+  const strength = passwordStrength();
+
+  if (success) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[var(--color-background)]">
+        <div className="w-full max-w-md px-8">
+          <div className="bg-[var(--color-card)] rounded-2xl p-8 border border-[var(--color-border)] text-center">
+            <div className="w-16 h-16 rounded-full bg-green-500/20 flex items-center justify-center mx-auto mb-6">
+              <Check className="w-8 h-8 text-green-400" />
+            </div>
+            <h2 className="text-2xl font-bold mb-2">Check your email</h2>
+            <p className="text-[var(--color-muted)] mb-6">
+              We&apos;ve sent a confirmation link to <strong className="text-[var(--color-foreground)]">{email}</strong>. Click the link to activate your account.
+            </p>
+            <Link
+              href="/auth/login"
+              className="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-indigo-600 hover:bg-indigo-500 transition-colors"
+            >
+              Back to Sign In
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (showEmailForm) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[var(--color-background)]">
+      <div className="min-h-screen flex items-center justify-center bg-[var(--color-background)] py-12">
         <div className="w-full max-w-md px-8">
           {/* Logo */}
           <div className="text-center mb-8">
@@ -78,7 +120,7 @@ function LoginForm() {
             </p>
           </div>
 
-          {/* Email Login Card */}
+          {/* Email Signup Card */}
           <div className="bg-[var(--color-card)] rounded-2xl p-8 border border-[var(--color-border)]">
             <button
               onClick={() => {
@@ -92,7 +134,7 @@ function LoginForm() {
             </button>
 
             <h2 className="text-xl font-semibold mb-6">
-              Sign in with Email
+              Create your account
             </h2>
 
             {error && (
@@ -101,9 +143,20 @@ function LoginForm() {
               </div>
             )}
 
-            <form onSubmit={handleEmailSignIn} className="space-y-4">
+            <form onSubmit={handleEmailSignUp} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium mb-2">Email</label>
+                <label className="block text-sm font-medium mb-2">Full Name (optional)</label>
+                <input
+                  type="text"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  className="w-full px-4 py-3 rounded-lg bg-[var(--color-surface)] border border-[var(--color-border)] focus:border-indigo-500 focus:outline-none transition-colors"
+                  placeholder="John Doe"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2">Email *</label>
                 <input
                   type="email"
                   value={email}
@@ -115,7 +168,7 @@ function LoginForm() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-2">Password</label>
+                <label className="block text-sm font-medium mb-2">Password *</label>
                 <div className="relative">
                   <input
                     type={showPassword ? 'text' : 'password'}
@@ -133,35 +186,51 @@ function LoginForm() {
                     {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                   </button>
                 </div>
+                {strength && (
+                  <div className="mt-2">
+                    <div className="h-1 bg-[var(--color-surface)] rounded-full overflow-hidden">
+                      <div
+                        className={`h-full ${strength.color} transition-all duration-300`}
+                        style={{ width: strength.width }}
+                      />
+                    </div>
+                    <p className="text-xs text-[var(--color-muted)] mt-1">
+                      Password strength: {strength.label}
+                    </p>
+                  </div>
+                )}
               </div>
 
-              <div className="flex justify-end">
-                <Link
-                  href="/auth/forgot-password"
-                  className="text-sm text-indigo-400 hover:underline"
-                >
-                  Forgot password?
-                </Link>
+              <div>
+                <label className="block text-sm font-medium mb-2">Confirm Password *</label>
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  className="w-full px-4 py-3 rounded-lg bg-[var(--color-surface)] border border-[var(--color-border)] focus:border-indigo-500 focus:outline-none transition-colors"
+                  placeholder="••••••••"
+                  required
+                />
               </div>
 
               <button
                 type="submit"
-                disabled={isLoading || isSigningIn !== null}
+                disabled={isLoading || isSigningUp !== null}
                 className="w-full flex items-center justify-center gap-3 px-4 py-3 rounded-lg bg-indigo-600 hover:bg-indigo-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {isSigningIn === 'email' ? (
+                {isSigningUp === 'email' ? (
                   <Loader2 className="w-5 h-5 animate-spin" />
                 ) : (
                   <Mail className="w-5 h-5" />
                 )}
-                <span>Sign In</span>
+                <span>Create Account</span>
               </button>
             </form>
 
             <p className="mt-6 text-center text-sm text-[var(--color-muted)]">
-              Don&apos;t have an account?{' '}
-              <Link href="/auth/signup" className="text-indigo-400 hover:underline">
-                Sign up
+              Already have an account?{' '}
+              <Link href="/auth/login" className="text-indigo-400 hover:underline">
+                Sign in
               </Link>
             </p>
           </div>
@@ -183,10 +252,10 @@ function LoginForm() {
           </p>
         </div>
 
-        {/* Login Card */}
+        {/* Signup Card */}
         <div className="bg-[var(--color-card)] rounded-2xl p-8 border border-[var(--color-border)]">
           <h2 className="text-xl font-semibold text-center mb-6">
-            Sign in to continue
+            Create your account
           </h2>
 
           {error && (
@@ -198,25 +267,25 @@ function LoginForm() {
           <div className="space-y-4">
             {/* GitHub */}
             <button
-              onClick={handleGithubSignIn}
-              disabled={isLoading || isSigningIn !== null}
+              onClick={handleGithubSignUp}
+              disabled={isLoading || isSigningUp !== null}
               className="w-full flex items-center justify-center gap-3 px-4 py-3 rounded-lg bg-[#24292e] hover:bg-[#2f363d] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {isSigningIn === 'github' ? (
+              {isSigningUp === 'github' ? (
                 <Loader2 className="w-5 h-5 animate-spin" />
               ) : (
                 <Github className="w-5 h-5" />
               )}
-              <span>Continue with GitHub</span>
+              <span>Sign up with GitHub</span>
             </button>
 
             {/* Google */}
             <button
-              onClick={handleGoogleSignIn}
-              disabled={isLoading || isSigningIn !== null}
+              onClick={handleGoogleSignUp}
+              disabled={isLoading || isSigningUp !== null}
               className="w-full flex items-center justify-center gap-3 px-4 py-3 rounded-lg bg-white text-gray-900 hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {isSigningIn === 'google' ? (
+              {isSigningUp === 'google' ? (
                 <Loader2 className="w-5 h-5 animate-spin" />
               ) : (
                 <svg className="w-5 h-5" viewBox="0 0 24 24">
@@ -238,7 +307,7 @@ function LoginForm() {
                   />
                 </svg>
               )}
-              <span>Continue with Google</span>
+              <span>Sign up with Google</span>
             </button>
           </div>
 
@@ -256,43 +325,25 @@ function LoginForm() {
           {/* Email */}
           <button
             onClick={() => setShowEmailForm(true)}
-            disabled={isLoading || isSigningIn !== null}
+            disabled={isLoading || isSigningUp !== null}
             className="w-full flex items-center justify-center gap-3 px-4 py-3 rounded-lg border border-[var(--color-border)] hover:bg-[var(--color-surface)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Mail className="w-5 h-5" />
-            <span>Continue with Email</span>
+            <span>Sign up with Email</span>
           </button>
-
-          {/* Guest Mode */}
-          <button
-            onClick={handleGuestSignIn}
-            disabled={isLoading || isSigningIn !== null}
-            className="w-full flex items-center justify-center gap-3 px-4 py-3 rounded-lg bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 transition-all disabled:opacity-50 disabled:cursor-not-allowed mt-4"
-          >
-            {isSigningIn === 'guest' ? (
-              <Loader2 className="w-5 h-5 animate-spin" />
-            ) : (
-              <User className="w-5 h-5" />
-            )}
-            <span>Continue as Guest</span>
-          </button>
-
-          <p className="mt-3 text-center text-xs text-[var(--color-muted)]">
-            Guest progress is stored locally and won&apos;t sync across devices
-          </p>
         </div>
 
-        {/* Sign up link */}
+        {/* Sign in link */}
         <p className="mt-6 text-center text-sm text-[var(--color-muted)]">
-          Don&apos;t have an account?{' '}
-          <Link href="/auth/signup" className="text-indigo-400 hover:underline">
-            Sign up
+          Already have an account?{' '}
+          <Link href="/auth/login" className="text-indigo-400 hover:underline">
+            Sign in
           </Link>
         </p>
 
         {/* Terms */}
         <p className="mt-4 text-center text-sm text-[var(--color-muted)]">
-          By signing in, you agree to our{' '}
+          By signing up, you agree to our{' '}
           <a href="/terms" className="text-indigo-400 hover:underline">
             Terms of Service
           </a>{' '}
@@ -306,7 +357,7 @@ function LoginForm() {
   );
 }
 
-export default function LoginPage() {
+export default function SignupPage() {
   return (
     <Suspense
       fallback={
@@ -315,7 +366,7 @@ export default function LoginPage() {
         </div>
       }
     >
-      <LoginForm />
+      <SignupForm />
     </Suspense>
   );
 }

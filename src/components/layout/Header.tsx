@@ -6,12 +6,13 @@ import { useAuth } from '@/components/providers/AuthProvider';
 import { useSubscription } from '@/hooks/useSubscription';
 import { Avatar } from '@/components/ui/Avatar';
 import { Button } from '@/components/ui/Button';
-import { LogOut, User, Settings, Sparkles, Crown, CreditCard, Menu, X } from 'lucide-react';
+import { LogOut, User, Settings, Sparkles, Crown, CreditCard, Menu, X, Trophy } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 
 const navLinks = [
   { href: '/learn', label: 'Learn' },
   { href: '/sandbox', label: 'Sandbox' },
+  { href: '/leaderboard', label: 'Leaderboard' },
   { href: '/lobby', label: 'Lobby' },
 ];
 
@@ -146,6 +147,15 @@ export function Header() {
                     </Link>
 
                     <Link
+                      href="/profile"
+                      className="flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-[var(--color-card-hover)] transition-colors"
+                      onClick={() => setIsMenuOpen(false)}
+                    >
+                      <Trophy className="w-4 h-4" />
+                      Profile
+                    </Link>
+
+                    <Link
                       href="/settings"
                       className="flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-[var(--color-card-hover)] transition-colors"
                       onClick={() => setIsMenuOpen(false)}
@@ -223,6 +233,12 @@ export function Header() {
                     className="block px-4 py-3 rounded-lg text-sm font-medium text-[var(--color-muted)] hover:bg-[var(--color-surface)]"
                   >
                     Dashboard
+                  </Link>
+                  <Link
+                    href="/profile"
+                    className="block px-4 py-3 rounded-lg text-sm font-medium text-[var(--color-muted)] hover:bg-[var(--color-surface)]"
+                  >
+                    Profile
                   </Link>
                   <Link
                     href="/settings"
