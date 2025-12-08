@@ -96,7 +96,6 @@ export default function SandboxPage() {
   const [key, setKey] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
-  const [shareUrl, setShareUrl] = useState<string | null>(null);
   const [showShareModal, setShowShareModal] = useState(false);
 
   const supabase = createClient();
@@ -115,7 +114,7 @@ export default function SandboxPage() {
   const handleExport = useCallback(() => {
     // Create a zip-like structure with the code
     const code = template === 'r3f' ? R3F_STARTER : VANILLA_STARTER;
-    const packageJson = JSON.stringify({
+    const _packageJson = JSON.stringify({
       name: 'lumina-sandbox-export',
       version: '1.0.0',
       dependencies: template === 'r3f'
@@ -191,23 +190,8 @@ ${code}
       return;
     }
 
-    // For now, we'll copy a shareable CodeSandbox link
-    const code = template === 'r3f' ? R3F_STARTER : VANILLA_STARTER;
-    const encoded = encodeURIComponent(code);
-
-    // Create a codesandbox URL
-    const parameters = {
-      files: {
-        'App.tsx': { content: code },
-        'package.json': {
-          content: JSON.stringify({
-            dependencies: template === 'r3f'
-              ? { react: '^18', 'react-dom': '^18', '@react-three/fiber': '^8', '@react-three/drei': '^9', three: '^0.158' }
-              : { three: '^0.158' }
-          })
-        }
-      }
-    };
+    // For now, we'll copy a shareable text (CodeSandbox integration TODO)
+    // const code = template === 'r3f' ? R3F_STARTER : VANILLA_STARTER;
 
     // Copy to clipboard
     const shareText = `Check out my 3D creation from Lumina!\n\nTemplate: ${template === 'r3f' ? 'React Three Fiber' : 'Vanilla Three.js'}`;

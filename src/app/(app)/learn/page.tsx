@@ -14,7 +14,7 @@ export default function LearnPage() {
   const isLoading = progressLoading || subscriptionLoading;
 
   // Calculate if a lesson is unlocked (all previous lessons completed OR first lesson of accessible phase)
-  const isLessonUnlocked = (phaseId: number, lessonOrder: number, lessonId: string): boolean => {
+  const isLessonUnlocked = (phaseId: number, lessonOrder: number, _lessonId: string): boolean => {
     const hasAccess = checkPhaseAccess(phaseId);
     if (!hasAccess) return false;
 
