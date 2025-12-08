@@ -1,10 +1,62 @@
 'use client';
 
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, ReactNode, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import type { User, Session } from '@supabase/supabase-js';
 
 const GUEST_STORAGE_KEY = 'lumina_guest_session';
+const GUEST_PROGRESS_KEY = 'lumina_guest_progress';
+
+// Migrate guest progress to authenticated user
+async function migrateGuestProgress(
+  userId: string,
+  guestProgress: {
+    stats?: { totalXP?: number; level?: number; streak?: number };
+    achievements?: string[];
+    lessonProgress?: Record<string, { status: string; attempts: number; hintsUsed: number }>;
+  },
+  supabase: ReturnType<typeof createClient>
+) {
+  // Migrate user progress (XP, level, streak)
+  if (guestProgress.stats) {
+    await (supabase.from('user_progress') as any).upsert({
+      user_id: userId,
+      total_xp: guestProgress.stats.totalXP || 0,
+      current_xp: guestProgress.stats.totalXP || 0,
+      level: guestProgress.stats.level || 1,
+      streak_days: guestProgress.stats.streak || 0,
+      last_activity_date: new Date().toISOString().split('T')[0],
+    });
+  }
+
+  // Migrate lesson progress
+  if (guestProgress.lessonProgress) {
+    const lessonProgressEntries = Object.entries(guestProgress.lessonProgress).map(
+      ([lessonId, progress]) => ({
+        user_id: userId,
+        lesson_id: lessonId,
+        status: progress.status,
+        attempts: progress.attempts,
+        hints_used: progress.hintsUsed,
+        completed_at: progress.status === 'completed' ? new Date().toISOString() : null,
+      })
+    );
+
+    if (lessonProgressEntries.length > 0) {
+      await (supabase.from('lesson_progress') as any).upsert(lessonProgressEntries);
+    }
+  }
+
+  // Migrate achievements
+  if (guestProgress.achievements && guestProgress.achievements.length > 0) {
+    const achievementEntries = guestProgress.achievements.map((achievementId) => ({
+      user_id: userId,
+      achievement_id: achievementId,
+    }));
+
+    await (supabase.from('user_achievements') as any).upsert(achievementEntries);
+  }
+}
 
 // Create a mock guest user
 function createGuestUser(): User {
@@ -89,10 +141,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Listen for auth changes
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      // If real auth happens, clear guest session
+    } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      // If real auth happens, migrate guest progress and clear guest session
       if (session) {
+        // Check for guest progress to migrate
+        const guestProgressStr = localStorage.getItem(GUEST_PROGRESS_KEY);
+        if (guestProgressStr) {
+          try {
+            const guestProgress = JSON.parse(guestProgressStr);
+            await migrateGuestProgress(session.user.id, guestProgress, supabase);
+          } catch (err) {
+            console.error('Failed to migrate guest progress:', err);
+          }
+        }
+
         localStorage.removeItem(GUEST_STORAGE_KEY);
+        localStorage.removeItem(GUEST_PROGRESS_KEY);
+        // Clear the cookie
+        document.cookie = `${GUEST_STORAGE_KEY}=; path=/; max-age=0`;
         setIsGuest(false);
       }
       setSession(session);

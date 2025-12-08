@@ -9,6 +9,7 @@ import {
   checkAchievementTrigger,
   type Achievement,
 } from '@/lib/gamification/achievements';
+import { curriculum } from '@/content/curriculum';
 
 interface UserStats {
   level: number;
@@ -156,6 +157,27 @@ export function useProgress() {
         const typedProgressData = progressData as UserProgressRow | null;
         const typedAchievementData = achievementData as UserAchievementRow[] | null;
 
+        // Calculate completed phases
+        const phasesCompleted: number[] = [];
+        curriculum.forEach((phase) => {
+          if (phase.lessons.length === 0) return;
+          const allLessonsCompleted = phase.lessons.every((lesson) => {
+            const progress = lessonProgress[lesson.id];
+            return progress?.status === 'completed' || progress?.status === 'mastered';
+          });
+          if (allLessonsCompleted) {
+            phasesCompleted.push(phase.id);
+          }
+        });
+
+        // Fetch sandbox creations count
+        let sandboxCreations = 0;
+        const { count } = await supabase
+          .from('saved_projects')
+          .select('*', { count: 'exact', head: true })
+          .eq('user_id', user.id);
+        sandboxCreations = count || 0;
+
         setState({
           stats: {
             level: typedProgressData?.level || 1,
@@ -165,8 +187,8 @@ export function useProgress() {
             lessonsCompleted: completedLessons,
             noHintsCount,
             firstTryCount,
-            phasesCompleted: [], // TODO: Calculate from lesson progress
-            sandboxCreations: 0, // TODO: Fetch from saved_projects
+            phasesCompleted,
+            sandboxCreations,
           },
           achievements: typedAchievementData?.map((a) => a.achievement_id) || [],
           lessonProgress,
