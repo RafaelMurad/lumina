@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createCheckoutSession } from '@/lib/stripe/server';
 import { createClient } from '@/lib/supabase/server';
+import { rateLimit, getRateLimitHeaders, RATE_LIMITS } from '@/lib/security/rate-limit';
+import { checkoutSchema, validateRequest } from '@/lib/security/validation';
 
 export async function POST(request: NextRequest) {
   try {
@@ -14,15 +16,30 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { priceId } = await request.json();
-
-    if (!priceId) {
+    // Rate limit: 5 checkout attempts per minute
+    const rateLimitResult = rateLimit(`checkout:${user.id}`, RATE_LIMITS.checkout);
+    if (!rateLimitResult.success) {
       return NextResponse.json(
-        { message: 'Price ID is required' },
+        { message: 'Too many checkout attempts. Please wait a moment.' },
+        {
+          status: 429,
+          headers: getRateLimitHeaders(rateLimitResult),
+        }
+      );
+    }
+
+    // Parse and validate input
+    const body = await request.json();
+    const validation = validateRequest(checkoutSchema, body);
+
+    if (!validation.success) {
+      return NextResponse.json(
+        { message: validation.error },
         { status: 400 }
       );
     }
 
+    const { priceId } = validation.data;
     const origin = request.headers.get('origin') || 'http://localhost:3000';
 
     const session = await createCheckoutSession({
@@ -33,7 +50,10 @@ export async function POST(request: NextRequest) {
       cancelUrl: `${origin}/pricing?canceled=true`,
     });
 
-    return NextResponse.json({ sessionId: session.id });
+    return NextResponse.json(
+      { sessionId: session.id },
+      { headers: getRateLimitHeaders(rateLimitResult) }
+    );
   } catch (error) {
     console.error('Checkout error:', error);
     return NextResponse.json(
