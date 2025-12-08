@@ -163,8 +163,7 @@ function LobbyContent({ onNavigate, tier, userProgress, userAchievements }: Lobb
 
 export default function LobbyScene() {
   const router = useRouter();
-  useSceneStore();
-  const { isDetecting, tier } = usePerformanceTier();
+  const { config, isDetecting, tier } = usePerformanceTier();
   const { lessonProgress, achievements } = useProgress();
 
   const handleNavigate = useCallback(
