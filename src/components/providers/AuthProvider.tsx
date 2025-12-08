@@ -89,6 +89,9 @@ interface AuthContextType {
   isGuest: boolean;
   signInWithGithub: () => Promise<void>;
   signInWithGoogle: () => Promise<void>;
+  signInWithEmail: (email: string, password: string) => Promise<{ error?: string }>;
+  signUpWithEmail: (email: string, password: string, fullName?: string) => Promise<{ error?: string }>;
+  resetPassword: (email: string) => Promise<{ error?: string }>;
   signInAsGuest: () => void;
   signOut: () => Promise<void>;
 }
@@ -197,6 +200,47 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const signInWithEmail = async (email: string, password: string) => {
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+    if (error) {
+      console.error('Email sign in error:', error);
+      return { error: error.message };
+    }
+    return {};
+  };
+
+  const signUpWithEmail = async (email: string, password: string, fullName?: string) => {
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        emailRedirectTo: `${window.location.origin}/auth/callback`,
+        data: {
+          full_name: fullName || '',
+        },
+      },
+    });
+    if (error) {
+      console.error('Email sign up error:', error);
+      return { error: error.message };
+    }
+    return {};
+  };
+
+  const resetPassword = async (email: string) => {
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/auth/reset-password`,
+    });
+    if (error) {
+      console.error('Password reset error:', error);
+      return { error: error.message };
+    }
+    return {};
+  };
+
   const signInAsGuest = () => {
     const guestUser = createGuestUser();
     localStorage.setItem(GUEST_STORAGE_KEY, JSON.stringify(guestUser));
@@ -236,6 +280,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isGuest,
         signInWithGithub,
         signInWithGoogle,
+        signInWithEmail,
+        signUpWithEmail,
+        resetPassword,
         signInAsGuest,
         signOut,
       }}
