@@ -57,10 +57,9 @@ export function useSubscription() {
           .from('subscriptions')
           .select('*')
           .eq('user_id', user.id)
-          .single();
+          .maybeSingle();
 
-        if (error && error.code !== 'PGRST116') {
-          // PGRST116 = no rows returned
+        if (error) {
           console.error('Error loading subscription:', error);
         }
 

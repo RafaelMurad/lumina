@@ -12,10 +12,10 @@ const LobbyScene = dynamic(() => import('@/components/three/Lobby/LobbyScene'), 
 
 function LobbyLoading() {
   return (
-    <div className="fixed inset-0 bg-[var(--color-background)] flex items-center justify-center">
+    <div className="w-full h-[calc(100vh-64px)] flex items-center justify-center bg-[#0a0a0f]">
       <div className="text-center">
         <Loader2 className="w-12 h-12 animate-spin text-indigo-500 mx-auto mb-4" />
-        <p className="text-[var(--color-muted)]">Loading the Lobby...</p>
+        <p className="text-gray-400">Loading the Lobby...</p>
       </div>
     </div>
   );
@@ -23,7 +23,7 @@ function LobbyLoading() {
 
 export default function LobbyPage() {
   return (
-    <div className="fixed inset-0 pt-16">
+    <div className="w-full h-[calc(100vh-64px)] bg-[#0a0a0f]">
       <Suspense fallback={<LobbyLoading />}>
         <LobbyScene />
       </Suspense>
