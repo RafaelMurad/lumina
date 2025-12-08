@@ -1,11 +1,24 @@
 'use client';
 
+import { Suspense, useCallback } from 'react';
 import { Canvas } from '@react-three/fiber';
-import { Environment, OrbitControls, PerspectiveCamera, Text } from '@react-three/drei';
-import { Suspense } from 'react';
+import {
+  Environment,
+  PerspectiveCamera,
+  ContactShadows,
+  Stars,
+  Text,
+} from '@react-three/drei';
+import { useRouter } from 'next/navigation';
 import { useSceneStore } from '@/stores/sceneStore';
+import { usePerformanceTier } from '@/hooks/usePerformanceTier';
+import { Terminal } from './Terminal';
+import { Bookshelf } from './Bookshelf';
+import { TrophyShelf } from './TrophyShelf';
+import { SkillTree } from './SkillTree';
+import { CameraController } from './CameraController';
 
-function LoadingPlaceholder() {
+function LoadingFallback() {
   return (
     <mesh>
       <boxGeometry args={[1, 1, 1]} />
@@ -14,189 +27,182 @@ function LoadingPlaceholder() {
   );
 }
 
-function LobbyEnvironment() {
+function LobbyEnvironment({ tier }: { tier: 'ultra' | 'balanced' | 'minimal' }) {
   return (
     <>
-      {/* Ambient light for base illumination */}
-      <ambientLight intensity={0.3} />
+      {/* Ambient lighting */}
+      <ambientLight intensity={0.4} />
 
       {/* Main directional light */}
       <directionalLight
-        position={[10, 10, 5]}
+        position={[5, 8, 5]}
         intensity={1}
-        castShadow
-        shadow-mapSize={[2048, 2048]}
+        castShadow={tier !== 'minimal'}
+        shadow-mapSize={tier === 'ultra' ? 2048 : 1024}
+        shadow-camera-far={50}
+        shadow-camera-left={-10}
+        shadow-camera-right={10}
+        shadow-camera-top={10}
+        shadow-camera-bottom={-10}
       />
 
-      {/* Environment map for reflections */}
-      <Environment preset="apartment" />
+      {/* Fill light */}
+      <directionalLight position={[-5, 3, -5]} intensity={0.3} />
+
+      {/* Environment map */}
+      <Environment preset="night" />
+
+      {/* Stars background for ultra/balanced */}
+      {tier !== 'minimal' && (
+        <Stars
+          radius={100}
+          depth={50}
+          count={tier === 'ultra' ? 5000 : 2000}
+          factor={4}
+          saturation={0}
+          fade
+          speed={1}
+        />
+      )}
     </>
   );
 }
 
 function Floor() {
   return (
-    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.5, 0]} receiveShadow>
-      <planeGeometry args={[20, 20]} />
-      <meshStandardMaterial color="#1a1a2e" />
+    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.01, 0]} receiveShadow>
+      <circleGeometry args={[12, 64]} />
+      <meshStandardMaterial color="#0f0f14" roughness={0.9} metalness={0.1} />
     </mesh>
   );
 }
 
-function PlaceholderRoom() {
+interface LobbyContentProps {
+  onNavigate: (path: string) => void;
+  tier: 'ultra' | 'balanced' | 'minimal';
+}
+
+function LobbyContent({ onNavigate, tier }: LobbyContentProps) {
+  // Mock user progress - would come from store/API
+  const userProgress = {
+    phase1: 25,
+    phase2: 0,
+    phase3: 0,
+    phase4: 0,
+    phase5: 0,
+    phase6: 0,
+  };
+
+  const userAchievements = ['first_render'];
+
   return (
-    <group>
-      {/* Floor */}
+    <>
+      <LobbyEnvironment tier={tier} />
       <Floor />
 
-      {/* Placeholder for computer terminal */}
-      <group position={[0, 0, -3]}>
-        <mesh position={[0, 0.5, 0]} castShadow>
-          <boxGeometry args={[2, 1, 0.5]} />
-          <meshStandardMaterial color="#27272a" />
-        </mesh>
-        {/* Screen */}
-        <mesh position={[0, 1.2, -0.1]}>
-          <planeGeometry args={[1.6, 1]} />
-          <meshStandardMaterial color="#0a0a0f" emissive="#6366f1" emissiveIntensity={0.2} />
-        </mesh>
+      {/* Contact shadows for better grounding */}
+      {tier !== 'minimal' && (
+        <ContactShadows
+          position={[0, 0, 0]}
+          opacity={0.4}
+          scale={20}
+          blur={2}
+          far={4}
+        />
+      )}
+
+      {/* Interactive Objects */}
+      <Terminal
+        position={[0, 0, -3]}
+        onInteract={() => onNavigate('/sandbox')}
+      />
+
+      <Bookshelf
+        position={[-4, 0, 0]}
+        onInteract={() => onNavigate('/learn')}
+      />
+
+      <SkillTree
+        position={[4, 0, 0]}
+        onInteract={() => onNavigate('/dashboard')}
+        progress={userProgress}
+      />
+
+      <TrophyShelf
+        position={[0, 1.5, 3]}
+        onInteract={() => onNavigate('/dashboard')}
+        achievements={userAchievements}
+      />
+
+      {/* Welcome text */}
+      <group position={[0, 4, -5]}>
         <Text
-          position={[0, 1.2, 0]}
-          fontSize={0.15}
+          fontSize={0.6}
           color="#6366f1"
           anchorX="center"
           anchorY="middle"
+          font="/fonts/inter-bold.woff"
         >
-          CODE TERMINAL
+          LUMINA
         </Text>
-      </group>
-
-      {/* Placeholder for bookshelf */}
-      <group position={[-4, 0, 0]}>
-        <mesh position={[0, 1.5, 0]} castShadow>
-          <boxGeometry args={[0.5, 3, 2]} />
-          <meshStandardMaterial color="#3f3f46" />
-        </mesh>
         <Text
-          position={[0.3, 1.5, 0]}
+          position={[0, -0.5, 0]}
           fontSize={0.15}
-          color="#a855f7"
-          rotation={[0, Math.PI / 2, 0]}
+          color="#71717a"
           anchorX="center"
           anchorY="middle"
         >
-          MODULES
+          Click on objects to explore
         </Text>
       </group>
-
-      {/* Placeholder for skill tree */}
-      <group position={[4, 0, 0]}>
-        <mesh position={[0, 1.5, 0]} castShadow>
-          <cylinderGeometry args={[0.1, 0.2, 3, 8]} />
-          <meshStandardMaterial color="#065f46" />
-        </mesh>
-        {/* Branches */}
-        {[0, 1, 2].map((i) => (
-          <mesh
-            key={i}
-            position={[Math.sin(i * 2) * 0.5, 1 + i * 0.5, Math.cos(i * 2) * 0.5]}
-            rotation={[0, 0, Math.PI / 4]}
-            castShadow
-          >
-            <cylinderGeometry args={[0.03, 0.05, 0.8, 6]} />
-            <meshStandardMaterial color="#10b981" />
-          </mesh>
-        ))}
-        <Text
-          position={[0, 3.5, 0]}
-          fontSize={0.15}
-          color="#10b981"
-          anchorX="center"
-          anchorY="middle"
-        >
-          SKILL TREE
-        </Text>
-      </group>
-
-      {/* Placeholder for trophy shelf */}
-      <group position={[0, 0, 3]}>
-        <mesh position={[0, 1, 0]} castShadow>
-          <boxGeometry args={[3, 0.1, 0.5]} />
-          <meshStandardMaterial color="#44403c" />
-        </mesh>
-        <mesh position={[0, 1.8, 0]} castShadow>
-          <boxGeometry args={[3, 0.1, 0.5]} />
-          <meshStandardMaterial color="#44403c" />
-        </mesh>
-        <Text
-          position={[0, 2.3, 0]}
-          fontSize={0.15}
-          color="#fbbf24"
-          anchorX="center"
-          anchorY="middle"
-        >
-          TROPHIES
-        </Text>
-      </group>
-
-      {/* Welcome text */}
-      <Text
-        position={[0, 3, -3]}
-        fontSize={0.3}
-        color="#ffffff"
-        anchorX="center"
-        anchorY="middle"
-      >
-        Welcome to Lumina
-      </Text>
-      <Text
-        position={[0, 2.5, -3]}
-        fontSize={0.12}
-        color="#71717a"
-        anchorX="center"
-        anchorY="middle"
-      >
-        Click on objects to interact
-      </Text>
-    </group>
+    </>
   );
 }
 
 export default function LobbyScene() {
-  const performanceTier = useSceneStore((state) => state.performanceTier);
+  const router = useRouter();
+  const { performanceTier, isLoading: sceneLoading } = useSceneStore();
+  const { config, isDetecting, tier } = usePerformanceTier();
 
-  // Performance settings based on tier
-  const dpr: [number, number] =
-    performanceTier === 'ultra'
-      ? [1.5, 2]
-      : performanceTier === 'balanced'
-        ? [1, 1.5]
-        : [0.75, 1];
+  const handleNavigate = useCallback(
+    (path: string) => {
+      router.push(path);
+    },
+    [router]
+  );
+
+  if (isDetecting) {
+    return (
+      <div className="w-full h-full flex items-center justify-center bg-[#0a0a0f]">
+        <div className="text-center">
+          <div className="w-12 h-12 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-gray-400">Optimizing for your device...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <Canvas
-      dpr={dpr}
-      shadows={performanceTier !== 'minimal'}
+      dpr={config.dpr}
+      shadows={config.shadows !== false}
       gl={{
-        antialias: performanceTier !== 'minimal',
-        powerPreference: performanceTier === 'minimal' ? 'low-power' : 'high-performance',
+        antialias: config.antialias,
+        powerPreference: tier === 'minimal' ? 'low-power' : 'high-performance',
+        alpha: false,
       }}
+      frameloop={config.frameloop}
       className="w-full h-full"
     >
+      <color attach="background" args={['#0a0a0f']} />
+
       <PerspectiveCamera makeDefault position={[0, 3, 8]} fov={50} />
 
-      <Suspense fallback={<LoadingPlaceholder />}>
-        <LobbyEnvironment />
-        <PlaceholderRoom />
+      <Suspense fallback={<LoadingFallback />}>
+        <LobbyContent onNavigate={handleNavigate} tier={tier} />
       </Suspense>
 
-      <OrbitControls
-        enablePan={false}
-        minDistance={3}
-        maxDistance={15}
-        minPolarAngle={Math.PI / 6}
-        maxPolarAngle={Math.PI / 2.2}
-      />
+      <CameraController />
     </Canvas>
   );
 }
