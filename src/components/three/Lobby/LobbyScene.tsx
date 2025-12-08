@@ -218,7 +218,7 @@ export default function LobbyScene() {
         alpha: false,
       }}
       frameloop={config.frameloop}
-      className="w-full h-full"
+      style={{ width: '100%', height: '100%' }}
     >
       <color attach="background" args={['#0a0a0f']} />
 
